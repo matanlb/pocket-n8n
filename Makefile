@@ -95,12 +95,25 @@ build: ## Build Docker image locally
 pull: ## Pull latest n8n image
 	docker-compose pull
 
+# Production Machine Control
+resume-prod: ## Resume production machine (start from stopped)
+	@if [ ! -f .env ]; then echo "❌ .env file not found"; exit 1; fi
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly machine start -a $$APP_NAME
+
+stop-prod: ## Stop production machine (saves compute costs)
+	@if [ ! -f .env ]; then echo "❌ .env file not found"; exit 1; fi
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly machine stop -a $$APP_NAME
+
 # Production Scaling
 scale-up: ## Scale production to 2 instances
-	fly scale count 2 -a matanlb-n8n
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly scale count 2 -a $$APP_NAME
 
 scale-down: ## Scale production to 1 instance
-	fly scale count 1 -a matanlb-n8n
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly scale count 1 -a $$APP_NAME
 
 # Monitoring
 ps: ## Show running processes in production
