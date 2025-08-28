@@ -35,7 +35,7 @@ primary_region = "fra"  # Frankfurt - lowest latency to Israel
 
 [mounts]
   source = "n8n_data"
-  destination = "/home/n8nuser/.n8n"
+  destination = "/home/node/.n8n"
 
 [[vm]]
   cpu_kind = "shared"
