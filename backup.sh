@@ -27,7 +27,7 @@ backup_remote() {
     
     # Create backup via SSH to running machine
     print_status "Connecting to running machine and creating backup..."
-    fly ssh console -a "$APP_NAME" -C "cd /home/n8nuser/.n8n && tar -czf /tmp/backup_${TIMESTAMP}.tar.gz ."
+    fly ssh console -a "$APP_NAME" -C "cd /home/node/.n8n && tar -czf /tmp/backup_${TIMESTAMP}.tar.gz ."
     
     # Download the backup file
     print_status "Downloading backup file..."
@@ -71,7 +71,7 @@ restore_remote() {
     print_status "Stopping n8n, restoring data, and restarting..."
     fly ssh console -a "$APP_NAME" -C "
         pkill -f n8n || true &&
-        cd /home/n8nuser/.n8n &&
+        cd /home/node/.n8n &&
         rm -rf ./* &&
         tar -xzf /tmp/restore_${TIMESTAMP}.tar.gz &&
         rm -f /tmp/restore_${TIMESTAMP}.tar.gz &&
