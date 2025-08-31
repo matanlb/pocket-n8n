@@ -48,7 +48,7 @@ setup_secrets() {
             
             case $key in
                 # All environment variables in Fly.io are set as secrets
-                N8N_BASIC_AUTH_USER|N8N_BASIC_AUTH_PASSWORD|N8N_ENCRYPTION_KEY|WEBHOOK_URL|N8N_LOG_LEVEL|GENERIC_TIMEZONE)
+                N8N_ENCRYPTION_KEY|WEBHOOK_URL|N8N_LOG_LEVEL|GENERIC_TIMEZONE|N8N_EMAIL_MODE|N8N_SMTP_HOST|N8N_SMTP_PORT|N8N_SMTP_USER|N8N_SMTP_PASS|N8N_SMTP_SENDER)
                     print_status "Setting secret: $key"
                     fly secrets set "$key=$value" -a "$APP_NAME"
                     ;;
@@ -57,8 +57,6 @@ setup_secrets() {
     else
         print_warning "No .env file found. You'll need to set configuration manually:"
         echo "# All configuration is set via secrets:"
-        echo "fly secrets set N8N_BASIC_AUTH_USER=<username> -a $APP_NAME"
-        echo "fly secrets set N8N_BASIC_AUTH_PASSWORD=<password> -a $APP_NAME"
         echo "fly secrets set N8N_ENCRYPTION_KEY=<encryption-key> -a $APP_NAME"
         echo "fly secrets set WEBHOOK_URL=https://$APP_NAME.fly.dev -a $APP_NAME"
         echo "fly secrets set N8N_LOG_LEVEL=info -a $APP_NAME"
