@@ -1,6 +1,7 @@
 # Fly.io configuration for n8n deployment
-app = "matanlb-n8n"
-primary_region = "fra"  # Frankfurt - lowest latency to Israel
+# NOTE: app name and primary_region are overridden by deploy.sh from .env values
+app = "pocket-n8n"
+primary_region = "fra"
 
 [build]
   dockerfile = "Dockerfile"

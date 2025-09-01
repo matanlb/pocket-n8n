@@ -9,6 +9,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/scripts/utils.sh"
 
+# Load configuration from .env
+load_config_from_env
+
 # Create .env file if it doesn't exist
 setup_env_file() {
     if [[ ! -f .env ]]; then

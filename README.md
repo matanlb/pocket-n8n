@@ -21,9 +21,11 @@ nano .env
 ```
 
 **Required variables:**
-- `N8N_BASIC_AUTH_USER` - Username for n8n login
-- `N8N_BASIC_AUTH_PASSWORD` - Password for n8n login  
 - `N8N_ENCRYPTION_KEY` - Encryption key for n8n data (generate with: `openssl rand -base64 32`)
+
+**Optional but recommended variables:**
+- SMTP settings for email functionality (enables Send Email nodes, user invitations, password resets)
+- `GENERIC_TIMEZONE` - Set to your local timezone (e.g., `Europe/London` or `America/New_York`)
 
 ### 2. Local Development
 
@@ -47,7 +49,7 @@ fly auth login
 ./deploy.sh
 ```
 
-Your n8n instance will be available at: https://matanlb-n8n.fly.dev
+Your n8n instance will be available at: https://your-app-name.fly.dev
 
 ## Environment Variables
 
@@ -55,51 +57,89 @@ Your n8n instance will be available at: https://matanlb-n8n.fly.dev
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `N8N_BASIC_AUTH_USER` | Admin username | `admin` |
-| `N8N_BASIC_AUTH_PASSWORD` | Admin password | `your-secure-password` |
 | `N8N_ENCRYPTION_KEY` | Data encryption key | `generated-with-openssl` |
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `WEBHOOK_URL` | Base URL for webhooks | `https://matanlb-n8n.fly.dev` |
+| `APP_NAME` | Fly.io app name | `pocket-n8n` |
+| `WEBHOOK_URL` | Base URL for webhooks | `https://pocket-n8n.fly.dev` |
+| `FLY_REGION` | Deployment region (3-letter code) | `fra` (Frankfurt) |
 | `N8N_LOG_LEVEL` | Logging level | `info` |
 | `GENERIC_TIMEZONE` | Timezone | `UTC` |
+
+**Choosing a Region:** Select the region closest to your users for best performance. See [Fly.io Regions](https://fly.io/docs/reference/regions/) for all available options. Examples:
+- `fra` - Frankfurt, Germany
+- `iad` - Ashburn, USA (East Coast)
+- `nrt` - Tokyo, Japan
+
+### Email Configuration (Optional but Recommended)
+
+**Why SMTP is important:** Without SMTP configuration, you lose critical n8n functionality:
+- Send Email workflow nodes won't work
+- "Send and Wait for Response" interactive workflows are disabled
+- Cannot invite additional users via email
+- No password reset emails for user management
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `N8N_EMAIL_MODE` | Email mode | `smtp` |
+| `N8N_SMTP_HOST` | SMTP server | `smtp.gmail.com` |
+| `N8N_SMTP_PORT` | SMTP port | `587` |
+| `N8N_SMTP_USER` | SMTP username | `your-email@gmail.com` |
+| `N8N_SMTP_PASS` | SMTP password/app password | `your-gmail-app-password` |
+| `N8N_SMTP_SENDER` | From email address | `your-email@gmail.com` |
 
 ## Scripts
 
 ### Local Development
 
 ```bash
-./setup-local.sh start    # Start local environment
-./setup-local.sh stop     # Stop local environment  
-./setup-local.sh logs     # View logs
-./setup-local.sh cleanup  # Remove all containers and volumes
+make dev                  # Start local environment
+make stop                 # Stop local environment  
+make logs                 # View logs
+make clean                # Remove all containers and volumes
 ```
 
 ### Deployment
 
 ```bash
-./deploy.sh               # Deploy to Fly.io
+make deploy               # Smart deployment with secret change detection
 ```
+
+**Smart Deployment Strategy:**
+
+Our deployment script uses hash-based secret change detection to minimize machine restarts:
+
+**Why this matters:** Every `fly secrets set` command triggers a machine restart. Without optimization, changing multiple secrets would cause multiple restarts plus the deployment restart.
+
+**How we solve it:**
+1. **Hash comparison**: Calculate SHA256 hash of sensitive values (`N8N_ENCRYPTION_KEY` + `N8N_SMTP_PASS`)
+2. **Store hash as env var**: Non-sensitive hash stored as `SECRETS_HASH` environment variable
+3. **Smart detection**: Only update secrets when hash differs from stored value
+4. **Batch updates**: All secret changes happen in single command
+
+**Result:**
+- **Secrets unchanged**: 1 restart (deploy only)
+- **Secrets changed**: 2 restarts (secrets batch update + deploy)
+- **Maximum efficiency**: Never more than 2 restarts, regardless of configuration changes
 
 ### Backup & Restore
 
 ```bash
-./backup.sh backup        # Create backup (zero downtime)
-./backup.sh restore <file> # Restore from backup (brief downtime)
-./backup.sh list          # List available backups
-./backup.sh cleanup       # Remove old backups (keep last 5)
+make backup               # Create backup (zero downtime)
+make list-backups         # List available backups
+make cleanup-backups      # Remove old backups (keep last 5)
 ```
 
 ## Architecture
 
 - **Database**: SQLite (persisted in Fly.io volume)
-- **Storage**: 3GB persistent volume mounted at `/home/n8nuser/.n8n`
+- **Storage**: 3GB persistent volume mounted at `/home/node/.n8n`
 - **Resources**: 1 CPU, 1GB RAM (configurable in `fly.toml`)
-- **Region**: Frankfurt (`fra`) for lowest latency to Israel
-- **Security**: Basic authentication, HTTPS enforced, non-root user
+- **Region**: Configurable via `FLY_REGION` (defaults to Frankfurt)
+- **Security**: n8n user management, HTTPS enforced, non-root container user
 
 ## File Structure
 
@@ -119,11 +159,12 @@ Your n8n instance will be available at: https://matanlb-n8n.fly.dev
 
 ## Security Best Practices
 
-1. **Strong Passwords**: Use strong, unique passwords for `N8N_BASIC_AUTH_PASSWORD`
+1. **Strong n8n Passwords**: Use strong passwords for your n8n user accounts
 2. **Encryption Key**: Generate a secure encryption key with `openssl rand -base64 32`
 3. **HTTPS Only**: All traffic is forced to HTTPS in production
-4. **Non-root User**: Container runs as non-root user for security
-5. **Environment Variables**: Secrets are stored as Fly.io secrets, not in code
+4. **Non-root User**: Container runs as existing `node` user for security
+5. **Secret Management**: Sensitive data stored as Fly.io secrets with intelligent change detection
+6. **Configurable Deployment**: App name and region configurable via .env file
 
 ## Troubleshooting
 
@@ -132,13 +173,13 @@ Your n8n instance will be available at: https://matanlb-n8n.fly.dev
 **n8n not responding after deployment:**
 ```bash
 # Check application status
-fly status -a matanlb-n8n
+make status
 
 # View logs
-fly logs -a matanlb-n8n
+make logs-prod
 
 # Check machine status
-fly machine list -a matanlb-n8n
+make machine-list
 ```
 
 **Local development issues:**
@@ -155,7 +196,7 @@ docker-compose restart
 
 **Backup/restore failures:**
 - Ensure you're authenticated with Fly.io: `fly auth whoami`
-- Check if the app is running: `fly status -a matanlb-n8n`
+- Check if the app is running: `make status`
 - Verify backup file exists and is not corrupted
 
 ### Performance Tuning
@@ -168,11 +209,6 @@ docker-compose restart
   memory_mb = 2048
 ```
 
-**Scale to multiple regions:**
-```bash
-fly scale count 2 -a matanlb-n8n
-fly regions add lhr -a matanlb-n8n  # Add London region
-```
 
 ## Support
 

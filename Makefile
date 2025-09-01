@@ -60,16 +60,20 @@ cleanup-backups: ## Remove old backups (keep last 5)
 
 # Production Management
 status: ## Check production application status
-	fly status -a matanlb-n8n
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly status -a $$APP_NAME
 
 ssh: ## SSH into production container
-	fly ssh console -a matanlb-n8n
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly ssh console -a $$APP_NAME
 
 logs-prod: ## Show production logs
-	fly logs -a matanlb-n8n
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly logs -a $$APP_NAME
 
 logs-prod-follow: ## Follow production logs in real-time
-	fly logs -a matanlb-n8n -f
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly logs -a $$APP_NAME -f
 
 # Utility Commands
 check-deps: ## Check if required dependencies are installed
@@ -106,34 +110,20 @@ stop-prod: ## Stop production machine (saves compute costs)
 	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
 	fly machine stop -a $$APP_NAME
 
-# Production Scaling
-scale-up: ## Scale production to 2 instances
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
-	fly scale count 2 -a $$APP_NAME
-
-scale-down: ## Scale production to 1 instance
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
-	fly scale count 1 -a $$APP_NAME
 
 # Monitoring
-ps: ## Show running processes in production
-	fly ssh console -a matanlb-n8n -C "ps aux"
-
-disk: ## Show disk usage in production
-	fly ssh console -a matanlb-n8n -C "df -h"
-
-volume-list: ## List production volumes
-	fly volumes list -a matanlb-n8n
-
 machine-list: ## List production machines
-	fly machine list -a matanlb-n8n
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly machine list -a $$APP_NAME
 
 # Security
 secrets-list: ## List production secrets
-	fly secrets list -a matanlb-n8n
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly secrets list -a $$APP_NAME
 
 env-list: ## List production environment variables
-	fly env list -a matanlb-n8n
+	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	fly config env -a $$APP_NAME
 
 # Quick Development Workflow
 quick-start: setup dev ## Quick setup and start for new users
@@ -165,7 +155,8 @@ config: ## Show current configuration
 	@docker-compose ps 2>/dev/null || echo "  No local containers running"
 	@echo ""
 	@echo "Production status:"
-	@fly status -a matanlb-n8n 2>/dev/null || echo "  Not deployed or not authenticated"
+	@APP_NAME=$$(grep "^APP_NAME=" .env 2>/dev/null | cut -d= -f2) && \
+	fly status -a $$APP_NAME 2>/dev/null || echo "  Not deployed or not authenticated"
 	@echo ""
 	@if [ -f .env ]; then \
 		echo "Environment file: ✓ .env exists"; \
