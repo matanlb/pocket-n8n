@@ -5,25 +5,26 @@ This guide provides comprehensive information for future maintenance and develop
 ## Architecture Overview
 
 ### Deployment Stack
-- **Platform**: Fly.io (Frankfurt region for Israel proximity)
+- **Platform**: Fly.io (region configurable via `FLY_REGION`)
 - **Container**: Custom Docker image based on `n8nio/n8n:latest`
 - **Database**: SQLite (suitable for single-instance deployments)
-- **Storage**: Fly.io persistent volume (3GB, mounted at `/home/n8nuser/.n8n`)
-- **Security**: Basic authentication, HTTPS enforced, non-root container user
+- **Storage**: Fly.io persistent volume (3GB, mounted at `/home/node/.n8n`)
+- **Security**: n8n user management, HTTPS enforced, non-root container user
 
 ### Key Design Decisions
 
 1. **SQLite over PostgreSQL**: Chosen for simplicity and adequate performance for single-user/small team use
-2. **Basic Auth**: Simple authentication suitable for personal/small team use
-3. **Single Region**: Frankfurt region optimized for Israel latency
+2. **n8n User Management**: Built-in user system provides better workflow management than basic auth
+3. **Configurable Region**: Default Frankfurt region, configurable via `FLY_REGION`
 4. **Minimal Resources**: 1 CPU/1GB RAM - cost-effective starting point
+5. **Hash-based Secret Management**: Intelligent secret change detection to minimize deployment restarts
 
 ## Updating n8n Version
 
 ### Automated Update Process
 ```bash
 # 1. Check current version
-fly ssh console -a matanlb-n8n -C "n8n --version"
+fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "n8n --version"
 
 # 2. Create backup before update
 ./backup.sh backup
@@ -35,7 +36,7 @@ fly ssh console -a matanlb-n8n -C "n8n --version"
 ./deploy.sh
 
 # 5. Verify update
-fly ssh console -a matanlb-n8n -C "n8n --version"
+fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "n8n --version"
 ```
 
 ### Manual Version Pinning
@@ -44,10 +45,10 @@ For stability, consider pinning to specific versions:
 FROM n8nio/n8n:1.15.2  # Instead of :latest
 ```
 
-## Scaling Considerations
+## Resource Configuration
 
-### Vertical Scaling (More Resources)
-Edit `fly.toml`:
+### Adjusting Resources
+Edit `fly.toml` to modify CPU and memory:
 ```toml
 [[vm]]
   cpu_kind = "shared"      # or "performance"
@@ -55,26 +56,7 @@ Edit `fly.toml`:
   memory_mb = 2048         # Increase RAM
 ```
 
-### Horizontal Scaling (Multiple Instances)
-**Not recommended with SQLite**. For multi-instance:
-1. Migrate to PostgreSQL
-2. Configure external database
-3. Update environment variables
-4. Scale instances: `fly scale count 2`
 
-### Database Migration (SQLite → PostgreSQL)
-```bash
-# 1. Provision PostgreSQL (Fly.io Postgres or external)
-fly postgres create n8n-db
-
-# 2. Update environment variables
-fly secrets set DB_TYPE=postgresdb -a matanlb-n8n
-fly secrets set DB_POSTGRESDB_HOST=<host> -a matanlb-n8n
-fly secrets set DB_POSTGRESDB_PASSWORD=<password> -a matanlb-n8n
-
-# 3. Export SQLite data (manual process - n8n doesn't have built-in migration)
-# 4. Deploy with new configuration
-```
 
 ## Backup and Restore Procedures
 
@@ -98,10 +80,53 @@ The backup includes:
 ./backup.sh restore backups/n8n_backup_YYYYMMDD_HHMMSS.tar.gz
 
 # 2. Verify data integrity
-fly ssh console -a matanlb-n8n -C "ls -la /home/n8nuser/.n8n/"
+fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "ls -la /home/node/.n8n/"
 
 # 3. Test application functionality
-curl -I https://matanlb-n8n.fly.dev
+curl -I https://$(grep "^APP_NAME=" .env | cut -d= -f2).fly.dev
+```
+
+## Secret Management Strategy
+
+### Hash-Based Change Detection
+
+Our deployment uses an intelligent secret management system to minimize machine restarts:
+
+**The Problem:** Every `fly secrets set` command triggers a machine restart. Traditional approaches would cause multiple restarts during deployment.
+
+**Our Solution:**
+1. **Calculate hash** of sensitive values (`N8N_ENCRYPTION_KEY` + `N8N_SMTP_PASS`) from .env file
+2. **Store hash** as `SECRETS_HASH` environment variable (visible via `fly config env`)
+3. **Compare hashes** on each deployment to detect actual value changes
+4. **Batch update** secrets only when hash differs, in single command
+
+**Benefits:**
+- **Minimal restarts**: Only 1 restart for config changes, 2 for secret changes
+- **Automatic detection**: No manual tracking of what changed
+- **Single command**: All secrets updated together, not individually
+- **No local state**: Hash stored in Fly.io, travels with deployment
+
+**Usage:**
+```bash
+# Change secrets in .env file
+vim .env
+
+# Deploy automatically detects changes
+make deploy  # Will update secrets if hash differs
+```
+
+### Manual Secret Management
+
+If you need to bypass the automatic system:
+```bash
+# View current secrets (names only)
+make secrets-list
+
+# View environment variables (including SECRETS_HASH)
+make env-list
+
+# Manually update specific secret
+fly secrets set N8N_SMTP_PASS=new-password -a $(grep "^APP_NAME=" .env | cut -d= -f2)
 ```
 
 ## Common Maintenance Tasks
@@ -109,43 +134,43 @@ curl -I https://matanlb-n8n.fly.dev
 ### Viewing Logs
 ```bash
 # Real-time logs
-fly logs -a matanlb-n8n
+make logs-prod-follow
 
 # Historical logs
-fly logs -a matanlb-n8n --since=24h
+fly logs -a $(grep "^APP_NAME=" .env | cut -d= -f2) --since=24h
 ```
 
 ### Accessing the Container
 ```bash
 # SSH into running container
-fly ssh console -a matanlb-n8n
+make ssh
 
 # Execute commands
-fly ssh console -a matanlb-n8n -C "df -h"
+fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "df -h"
 ```
 
 ### Managing Secrets
 ```bash
 # List current secrets
-fly secrets list -a matanlb-n8n
+make secrets-list
 
 # Update secrets
-fly secrets set N8N_BASIC_AUTH_PASSWORD=new-password -a matanlb-n8n
+fly secrets set N8N_SMTP_PASS=new-password -a $(grep "^APP_NAME=" .env | cut -d= -f2)
 
 # Remove secrets
-fly secrets unset OLD_SECRET -a matanlb-n8n
+fly secrets unset OLD_SECRET -a $(grep "^APP_NAME=" .env | cut -d= -f2)
 ```
 
 ### Volume Management
 ```bash
 # List volumes
-fly volumes list -a matanlb-n8n
+fly volumes list -a $(grep "^APP_NAME=" .env | cut -d= -f2)
 
 # Extend volume size
-fly volumes extend <volume-id> --size 10 -a matanlb-n8n
+fly volumes extend <volume-id> --size 10 -a $(grep "^APP_NAME=" .env | cut -d= -f2)
 
 # Create additional volume (for scaling)
-fly volumes create n8n_data_2 --region fra --size 5 -a matanlb-n8n
+fly volumes create n8n_data_2 --region fra --size 5 -a $(grep "^APP_NAME=" .env | cut -d= -f2)
 ```
 
 ## Security Best Practices
@@ -158,7 +183,7 @@ fly volumes create n8n_data_2 --region fra --size 5 -a matanlb-n8n
 ### Authentication Hardening
 ```bash
 # Enable stronger authentication (if/when n8n supports it)
-fly secrets set N8N_USER_MANAGEMENT_DISABLED=false -a matanlb-n8n
+fly secrets set N8N_USER_MANAGEMENT_DISABLED=false -a $(grep "^APP_NAME=" .env | cut -d= -f2)
 ```
 
 ### Network Security
@@ -176,7 +201,7 @@ fly secrets set N8N_USER_MANAGEMENT_DISABLED=false -a matanlb-n8n
 ### Custom Monitoring Setup
 ```bash
 # Enable metrics collection
-fly env set N8N_METRICS=true -a matanlb-n8n
+fly env set N8N_METRICS=true -a $(grep "^APP_NAME=" .env | cut -d= -f2)
 
 # Configure external monitoring (Prometheus/Grafana)
 # Add monitoring configuration to fly.toml if needed
@@ -201,8 +226,8 @@ ANALYZE;
 ### Resource Monitoring
 ```bash
 # Check resource usage
-fly ssh console -a matanlb-n8n -C "top"
-fly ssh console -a matanlb-n8n -C "df -h"
+fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "top"
+fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "df -h"
 ```
 
 ### Workflow Optimization
@@ -213,18 +238,18 @@ fly ssh console -a matanlb-n8n -C "df -h"
 ## Troubleshooting Guide
 
 ### Application Won't Start
-1. Check logs: `fly logs -a matanlb-n8n`
-2. Verify secrets: `fly secrets list -a matanlb-n8n`
-3. Check volume mount: `fly ssh console -a matanlb-n8n -C "ls -la /home/n8nuser/.n8n/"`
+1. Check logs: `make logs-prod`
+2. Verify secrets: `make secrets-list`
+3. Check volume mount: `fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "ls -la /home/node/.n8n/"`
 
 ### Performance Issues
-1. Monitor resources: `fly machine list -a matanlb-n8n`
-2. Check database size: `fly ssh console -a matanlb-n8n -C "du -sh /home/n8nuser/.n8n/"`
+1. Monitor resources: `make machine-list`
+2. Check database size: `fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "du -sh /home/node/.n8n/"`
 3. Review workflow complexity
 
 ### Backup/Restore Issues
-1. Verify SSH access: `fly ssh console -a matanlb-n8n`
-2. Check disk space: `fly ssh console -a matanlb-n8n -C "df -h"`
+1. Verify SSH access: `make ssh`
+2. Check disk space: `fly ssh console -a $(grep "^APP_NAME=" .env | cut -d= -f2) -C "df -h"`
 3. Validate backup file integrity
 
 ## Development Workflow
@@ -257,34 +282,32 @@ fly ssh console -a matanlb-n8n -C "df -h"
 
 ```bash
 # Deployment
-./deploy.sh                              # Full deployment
-fly deploy -a matanlb-n8n               # Manual deploy
+make deploy                              # Full deployment via Makefile
+./deploy.sh                              # Direct script execution
 
 # Management
-fly status -a matanlb-n8n               # Check status
-fly scale count 1 -a matanlb-n8n        # Scale instances
-fly machine restart -a matanlb-n8n      # Restart application
+make status                              # Check status
+make machine-list                        # List machines
+fly machine restart -a $(grep "^APP_NAME=" .env | cut -d= -f2)      # Restart application
 
 # Backup/Restore
-./backup.sh backup                      # Create backup
-./backup.sh list                        # List backups
-./backup.sh cleanup                     # Clean old backups
+make backup                             # Create backup
+make list-backups                       # List backups  
+make cleanup-backups                    # Clean old backups
 
 # Local Development
-./setup-local.sh start                  # Start local
-./setup-local.sh logs                   # View logs
-./setup-local.sh cleanup                # Reset local env
+make dev                                # Start local environment
+make logs                               # View local logs
+make clean                              # Reset local env
 ```
 
 ## Future Enhancements
 
 ### Potential Improvements
 1. **Multi-user support**: Configure LDAP/SSO integration
-2. **External database**: Migrate to PostgreSQL for scaling
-3. **Redis queue**: Add Redis for workflow queue management
-4. **Monitoring stack**: Integrate Prometheus/Grafana
-5. **CI/CD pipeline**: Automate deployments
-6. **Multi-region**: Deploy across multiple regions
+2. **PostgreSQL migration**: External database for scaling beyond single instance
+3. **CI/CD pipeline**: Automate deployments with GitHub Actions
+4. **Automatic backups**: Schedule daily/weekly backups via cron
 
 ### Cost Optimization
 - Monitor usage patterns

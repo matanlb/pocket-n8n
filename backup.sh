@@ -9,6 +9,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/scripts/utils.sh"
 
+# Load configuration from .env
+load_config_from_env
+
 # Configuration
 BACKUP_DIR="./backups"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -27,7 +30,7 @@ backup_remote() {
     
     # Create backup via SSH to running machine
     print_status "Connecting to running machine and creating backup..."
-    fly ssh console -a "$APP_NAME" -C "cd /home/node/.n8n && tar -czf /tmp/backup_${TIMESTAMP}.tar.gz ."
+    fly ssh console -a "$APP_NAME" -C "sh -c 'cd /home/node/.n8n && tar -czf /tmp/backup_${TIMESTAMP}.tar.gz .'"
     
     # Download the backup file
     print_status "Downloading backup file..."
@@ -69,14 +72,7 @@ restore_remote() {
     
     # Stop n8n process, restore data, restart
     print_status "Stopping n8n, restoring data, and restarting..."
-    fly ssh console -a "$APP_NAME" -C "
-        pkill -f n8n || true &&
-        cd /home/node/.n8n &&
-        rm -rf ./* &&
-        tar -xzf /tmp/restore_${TIMESTAMP}.tar.gz &&
-        rm -f /tmp/restore_${TIMESTAMP}.tar.gz &&
-        nohup n8n > /dev/null 2>&1 &
-    "
+    fly ssh console -a "$APP_NAME" -C "sh -c 'pkill -f n8n || true && cd /home/node/.n8n && rm -rf ./* && tar -xzf /tmp/restore_${TIMESTAMP}.tar.gz && rm -f /tmp/restore_${TIMESTAMP}.tar.gz && nohup n8n > /dev/null 2>&1 &'"
     
     print_status "Restore completed successfully"
     print_status "Your n8n instance should be available shortly at: https://$APP_NAME.fly.dev"

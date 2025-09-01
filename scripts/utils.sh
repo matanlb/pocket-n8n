@@ -2,10 +2,27 @@
 
 # Shared utilities for n8n deployment scripts
 
-# Configuration
-APP_NAME="matanlb-n8n"
+# Configuration (will be overridden from .env if available)
+APP_NAME="pocket-n8n"
 VOLUME_NAME="n8n_data"
 REGION="fra"
+
+# Load configuration from .env if available
+load_config_from_env() {
+    if [[ -f .env ]]; then
+        # Load APP_NAME from .env
+        local env_app_name=$(grep "^APP_NAME=" .env | cut -d= -f2 | sed 's/^"\(.*\)"$/\1/')
+        if [[ -n "$env_app_name" ]]; then
+            APP_NAME="$env_app_name"
+        fi
+        
+        # Load FLY_REGION from .env
+        local env_region=$(grep "^FLY_REGION=" .env | cut -d= -f2 | sed 's/^"\(.*\)"$/\1/')
+        if [[ -n "$env_region" ]]; then
+            REGION="$env_region"
+        fi
+    fi
+}
 
 # Colors for output
 RED='\033[0;31m'
