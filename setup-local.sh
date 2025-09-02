@@ -84,8 +84,8 @@ main() {
     case $command in
         start)
             print_status "Setting up local n8n development environment..."
-            check_docker
-            check_docker_compose
+            check_local_deps
+            check_docker_running
             setup_env_file
             start_local
             ;;

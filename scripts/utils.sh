@@ -43,14 +43,68 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if fly CLI is installed
-check_fly_cli() {
+# Check production dependencies (fly, jq, docker)
+check_production_deps() {
+    local missing=()
+    
     if ! command -v fly &> /dev/null; then
-        print_error "Fly CLI not found. Please install it first:"
-        echo "curl -L https://fly.io/install.sh | sh"
+        missing+=("fly")
+    fi
+    
+    if ! command -v jq &> /dev/null; then
+        missing+=("jq")
+    fi
+    
+    if ! command -v docker &> /dev/null; then
+        missing+=("docker")
+    fi
+    
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        print_error "Missing dependencies: ${missing[*]}"
+        echo ""
+        print_status "Please install the missing tools:"
+        for tool in "${missing[@]}"; do
+            case $tool in
+                fly) echo "  • Fly.io CLI: https://fly.io/docs/getting-started/installing-flyctl/" ;;
+                jq) echo "  • jq: https://jqlang.github.io/jq/download/" ;;
+                docker) echo "  • Docker: https://docs.docker.com/get-docker/" ;;
+            esac
+        done
+        echo ""
         exit 1
     fi
-    print_status "Fly CLI found"
+}
+
+# Check local development dependencies (jq, docker, docker-compose)
+check_local_deps() {
+    local missing=()
+    
+    if ! command -v jq &> /dev/null; then
+        missing+=("jq")
+    fi
+    
+    if ! command -v docker &> /dev/null; then
+        missing+=("docker")
+    fi
+    
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+        missing+=("docker-compose")
+    fi
+    
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        print_error "Missing dependencies: ${missing[*]}"
+        echo ""
+        print_status "Please install the missing tools:"
+        for tool in "${missing[@]}"; do
+            case $tool in
+                jq) echo "  • jq: https://jqlang.github.io/jq/download/" ;;
+                docker) echo "  • Docker: https://docs.docker.com/get-docker/" ;;
+                docker-compose) echo "  • Docker Compose: https://docs.docker.com/compose/install/" ;;
+            esac
+        done
+        echo ""
+        exit 1
+    fi
 }
 
 # Check if user is logged in to Fly.io
@@ -62,26 +116,10 @@ check_fly_auth() {
     print_status "Authenticated with Fly.io"
 }
 
-# Check if Docker is installed and running
-check_docker() {
-    if ! command -v docker &> /dev/null; then
-        print_error "Docker not found. Please install Docker first."
-        exit 1
-    fi
-    
+# Check if Docker is running (assumes docker is installed)
+check_docker_running() {
     if ! docker info &> /dev/null; then
         print_error "Docker is not running. Please start Docker."
         exit 1
     fi
-    
-    print_status "Docker is installed and running"
-}
-
-# Check if Docker Compose is available
-check_docker_compose() {
-    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-        print_error "Docker Compose not found. Please install Docker Compose."
-        exit 1
-    fi
-    print_status "Docker Compose is available"
 }
