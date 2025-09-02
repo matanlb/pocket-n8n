@@ -1,7 +1,5 @@
-# Environment files
-.env
-.env.local
-.env.*.local
+# Configuration files
+config.yaml
 
 # Logs
 logs

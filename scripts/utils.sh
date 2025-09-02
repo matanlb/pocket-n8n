@@ -7,20 +7,11 @@ APP_NAME="pocket-n8n"
 VOLUME_NAME="n8n_data"
 REGION="fra"
 
-# Load configuration from .env if available
-load_config_from_env() {
-    if [[ -f .env ]]; then
-        # Load APP_NAME from .env
-        local env_app_name=$(grep "^APP_NAME=" .env | cut -d= -f2 | sed 's/^"\(.*\)"$/\1/')
-        if [[ -n "$env_app_name" ]]; then
-            APP_NAME="$env_app_name"
-        fi
-        
-        # Load FLY_REGION from .env
-        local env_region=$(grep "^FLY_REGION=" .env | cut -d= -f2 | sed 's/^"\(.*\)"$/\1/')
-        if [[ -n "$env_region" ]]; then
-            REGION="$env_region"
-        fi
+# Load configuration from config.yaml
+load_config_from_yaml() {
+    if [[ -f config.yaml ]]; then
+        APP_NAME=$(yq eval '.app.name' config.yaml)
+        REGION=$(yq eval '.app.region' config.yaml)
     fi
 }
 
@@ -43,7 +34,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check production dependencies (fly, jq, docker)
+# Check production dependencies (fly, yq, docker)
 check_production_deps() {
     local missing=()
     
@@ -51,8 +42,8 @@ check_production_deps() {
         missing+=("fly")
     fi
     
-    if ! command -v jq &> /dev/null; then
-        missing+=("jq")
+    if ! command -v yq &> /dev/null; then
+        missing+=("yq")
     fi
     
     if ! command -v docker &> /dev/null; then
@@ -66,7 +57,7 @@ check_production_deps() {
         for tool in "${missing[@]}"; do
             case $tool in
                 fly) echo "  • Fly.io CLI: https://fly.io/docs/getting-started/installing-flyctl/" ;;
-                jq) echo "  • jq: https://jqlang.github.io/jq/download/" ;;
+                yq) echo "  • yq: https://github.com/mikefarah/yq#install" ;;
                 docker) echo "  • Docker: https://docs.docker.com/get-docker/" ;;
             esac
         done
@@ -75,12 +66,12 @@ check_production_deps() {
     fi
 }
 
-# Check local development dependencies (jq, docker, docker-compose)
+# Check local development dependencies (yq, docker, docker-compose)
 check_local_deps() {
     local missing=()
     
-    if ! command -v jq &> /dev/null; then
-        missing+=("jq")
+    if ! command -v yq &> /dev/null; then
+        missing+=("yq")
     fi
     
     if ! command -v docker &> /dev/null; then
@@ -97,7 +88,7 @@ check_local_deps() {
         print_status "Please install the missing tools:"
         for tool in "${missing[@]}"; do
             case $tool in
-                jq) echo "  • jq: https://jqlang.github.io/jq/download/" ;;
+                yq) echo "  • yq: https://github.com/mikefarah/yq#install" ;;
                 docker) echo "  • Docker: https://docs.docker.com/get-docker/" ;;
                 docker-compose) echo "  • Docker Compose: https://docs.docker.com/compose/install/" ;;
             esac

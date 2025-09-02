@@ -9,8 +9,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/scripts/utils.sh"
 
-# Load configuration from .env
-load_config_from_env
+# Load configuration from config.yaml
+load_config_from_yaml
 
 # Check if app exists, create if it doesn't
 setup_app() {
@@ -36,14 +36,14 @@ setup_volume() {
 update_secrets_if_needed() {
     print_status "Checking if secrets need updating..."
     
-    if [[ ! -f .env ]]; then
-        print_warning "No .env file found - skipping secret check"
+    if [[ ! -f config.yaml ]]; then
+        print_warning "No config.yaml file found - skipping secret check"
         return
     fi
     
-    # Extract secret values from .env
-    local encryption_key=$(grep "^N8N_ENCRYPTION_KEY=" .env | cut -d= -f2 | sed 's/^"\(.*\)"$/\1/')
-    local smtp_pass=$(grep "^N8N_SMTP_PASS=" .env | cut -d= -f2 | sed 's/^"\(.*\)"$/\1/')
+    # Extract secret values from config.yaml
+    local encryption_key=$(yq eval '.n8n.encryption_key' config.yaml)
+    local smtp_pass=$(yq eval '.email.password // ""' config.yaml)
     
     # Calculate hash of current secret values
     local current_hash=$(echo "$encryption_key$smtp_pass" | sha256sum | cut -d' ' -f1)
@@ -72,28 +72,29 @@ update_secrets_if_needed() {
 deploy_app() {
     print_status "Deploying application with configuration..."
     
-    # Collect environment variables from .env file
+    # Collect environment variables from config.yaml
     local env_args=""
     
-    if [[ -f .env ]]; then
-        print_status "Reading configuration from .env file..."
+    if [[ -f config.yaml ]]; then
+        print_status "Reading configuration from config.yaml..."
         
-        while IFS='=' read -r key value; do
-            # Skip comments and empty lines
-            [[ $key =~ ^#.*$ ]] && continue
-            [[ -z $key ]] && continue
+        # Required config values
+        local webhook_url=$(yq eval '.app.webhook_url' config.yaml)
+        local log_level=$(yq eval '.n8n.log_level' config.yaml)
+        local timezone=$(yq eval '.n8n.timezone' config.yaml)
+        
+        env_args="--env WEBHOOK_URL=$webhook_url --env N8N_LOG_LEVEL=$log_level --env GENERIC_TIMEZONE=$timezone"
+        
+        # Optional email config (only if email section exists)
+        if yq eval '.email' config.yaml > /dev/null 2>&1; then
+            local email_mode=$(yq eval '.email.mode' config.yaml)
+            local smtp_host=$(yq eval '.email.host' config.yaml)
+            local smtp_port=$(yq eval '.email.port' config.yaml)
+            local smtp_user=$(yq eval '.email.user' config.yaml)
+            local smtp_sender=$(yq eval '.email.sender' config.yaml)
             
-            # Remove quotes from value
-            value=$(echo "$value" | sed 's/^"\(.*\)"$/\1/')
-            
-            case $key in
-                # Non-sensitive config passed as deploy-time env vars
-                WEBHOOK_URL|N8N_LOG_LEVEL|GENERIC_TIMEZONE|N8N_EMAIL_MODE|N8N_SMTP_HOST|N8N_SMTP_PORT|N8N_SMTP_USER|N8N_SMTP_SENDER)
-                    print_status "Including env var: $key"
-                    env_args="$env_args --env $key=$value"
-                    ;;
-            esac
-        done < .env
+            env_args="$env_args --env N8N_EMAIL_MODE=$email_mode --env N8N_SMTP_HOST=$smtp_host --env N8N_SMTP_PORT=$smtp_port --env N8N_SMTP_USER=$smtp_user --env N8N_SMTP_SENDER=$smtp_sender"
+        fi
     fi
     
     # Add SECRETS_HASH if it was updated

@@ -9,8 +9,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/scripts/utils.sh"
 
-# Load configuration from .env
-load_config_from_env
+# Load configuration from config.yaml
+load_config_from_yaml
 
 # Configuration
 BACKUP_DIR="./backups"
@@ -34,7 +34,7 @@ backup_remote() {
     
     # Download the backup file
     print_status "Downloading backup file..."
-    fly ssh sftp get -a "$APP_NAME" "/tmp/backup_${TIMESTAMP}.tar.gz" "$backup_file"
+    fly ssh sftp get "/tmp/backup_${TIMESTAMP}.tar.gz" "$backup_file" -a "$APP_NAME"
     
     # Clean up remote backup file
     fly ssh console -a "$APP_NAME" -C "rm -f /tmp/backup_${TIMESTAMP}.tar.gz"
@@ -68,7 +68,7 @@ restore_remote() {
     
     # Upload backup file
     print_status "Uploading backup file..."
-    fly ssh sftp put -a "$APP_NAME" "$backup_file" "/tmp/restore_${TIMESTAMP}.tar.gz"
+    cat "$backup_file" | fly ssh console -a "$APP_NAME" -C "dd of=/tmp/restore_${TIMESTAMP}.tar.gz"
     
     # Stop n8n process, restore data, restart
     print_status "Stopping n8n, restoring data, and restarting..."
