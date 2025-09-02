@@ -1,0 +1,22 @@
+# Pocket-n8n Configuration
+# Run 'make setup' to generate config.yaml from this template
+
+app:
+  name: pocket-n8n                    # Fly.io app name
+  webhook_url: https://USERNAME-pocket-n8n.fly.dev  # Base URL for webhooks (auto-prefixed with username)
+  region: fra                         # Deployment region - see https://fly.io/docs/reference/regions/
+
+n8n:
+  encryption_key: GENERATED_ENCRYPTION_KEY  # Auto-generated during setup
+  log_level: info                     # Logging level (debug, info, warn, error)
+  timezone: UTC                       # Timezone for n8n (e.g., Europe/London, America/New_York)
+
+# Email configuration (optional - uncomment and configure if needed)
+# Enables Send Email nodes, user invitations, and password resets
+# email:
+#   mode: smtp
+#   host: smtp.gmail.com              # SMTP server
+#   port: 587                         # SMTP port
+#   user: your-email@gmail.com        # SMTP username
+#   password: your-gmail-app-password # SMTP password/app password
+#   sender: your-email@gmail.com      # From email address

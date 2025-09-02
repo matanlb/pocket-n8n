@@ -10,31 +10,31 @@ A complete homelab-style setup for deploying n8n workflow automation platform on
 
 ## Quick Start
 
-### 1. Setup Environment Variables
+### 1. Setup Configuration
 
 ```bash
-# Copy the example environment file
-cp .env.example .env
+# For production deployment
+make setup
 
-# Edit .env with your values
-nano .env
+# For local development
+make setup-local
 ```
 
-**Required variables:**
-- `N8N_ENCRYPTION_KEY` - Encryption key for n8n data (generate with: `openssl rand -base64 32`)
+This automatically generates `config.yaml` (which is .gitignore'd) with secure defaults.
 
-**Optional but recommended variables:**
-- SMTP settings for email functionality (enables Send Email nodes, user invitations, password resets)
-- `GENERIC_TIMEZONE` - Set to your local timezone (e.g., `Europe/London` or `America/New_York`)
+**Required (auto-generated):**
+- Encryption key for n8n data security
+- Username-prefixed webhook URL for global uniqueness
+
+**Optional but recommended:**
+- Email/SMTP settings for full n8n functionality (Send Email nodes, user invitations, password resets)
+- Timezone configuration to control timing of scheduled workflows
 
 ### 2. Local Development
 
 ```bash
-# Make scripts executable
-chmod +x setup-local.sh deploy.sh backup.sh
-
 # Start local development environment
-./setup-local.sh start
+make dev
 
 # Access n8n at http://localhost:5678
 ```
@@ -46,30 +46,27 @@ chmod +x setup-local.sh deploy.sh backup.sh
 fly auth login
 
 # Deploy to production
-./deploy.sh
+make deploy
 ```
 
-Your n8n instance will be available at: https://your-app-name.fly.dev
+Your n8n instance will be available at: https://username-pocket-n8n.fly.dev
 
-## Environment Variables
+## Configuration
 
-### Required Variables
+Configuration is managed through `config.yaml`, which is auto-generated with secure defaults and excluded from git.
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `N8N_ENCRYPTION_KEY` | Data encryption key | `generated-with-openssl` |
+### Core Settings
 
-### Optional Variables
+| Config Key | Target Env Var | Description | Default |
+|------------|----------------|-------------|---------|
+| `app.name` | - | Fly.io app name | `pocket-n8n` |
+| `app.webhook_url` | `WEBHOOK_URL` | Base URL for webhooks | `https://username-pocket-n8n.fly.dev` |
+| `app.region` | - | Deployment region | `fra` (Frankfurt) |
+| `n8n.encryption_key` | `N8N_ENCRYPTION_KEY` | Data encryption key | Auto-generated |
+| `n8n.log_level` | `N8N_LOG_LEVEL` | Logging level | `info` |
+| `n8n.timezone` | `GENERIC_TIMEZONE` | Timezone | `UTC` |
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `APP_NAME` | Fly.io app name | `pocket-n8n` |
-| `WEBHOOK_URL` | Base URL for webhooks | `https://pocket-n8n.fly.dev` |
-| `FLY_REGION` | Deployment region (3-letter code) | `fra` (Frankfurt) |
-| `N8N_LOG_LEVEL` | Logging level | `info` |
-| `GENERIC_TIMEZONE` | Timezone | `UTC` |
-
-**Choosing a Region:** Select the region closest to your users for best performance. See [Fly.io Regions](https://fly.io/docs/reference/regions/) for all available options. Examples:
+**Choosing a Region:** Edit `app.region` in `config.yaml`. See [Fly.io Regions](https://fly.io/docs/reference/regions/) for all available options:
 - `fra` - Frankfurt, Germany
 - `iad` - Ashburn, USA (East Coast)
 - `nrt` - Tokyo, Japan
@@ -82,14 +79,14 @@ Your n8n instance will be available at: https://your-app-name.fly.dev
 - Cannot invite additional users via email
 - No password reset emails for user management
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `N8N_EMAIL_MODE` | Email mode | `smtp` |
-| `N8N_SMTP_HOST` | SMTP server | `smtp.gmail.com` |
-| `N8N_SMTP_PORT` | SMTP port | `587` |
-| `N8N_SMTP_USER` | SMTP username | `your-email@gmail.com` |
-| `N8N_SMTP_PASS` | SMTP password/app password | `your-gmail-app-password` |
-| `N8N_SMTP_SENDER` | From email address | `your-email@gmail.com` |
+| Config Key | Target Env Var | Description | Example |
+|------------|----------------|-------------|---------|
+| `email.mode` | `N8N_EMAIL_MODE` | Email mode | `smtp` |
+| `email.host` | `N8N_SMTP_HOST` | SMTP server | `smtp.gmail.com` |
+| `email.port` | `N8N_SMTP_PORT` | SMTP port | `587` |
+| `email.user` | `N8N_SMTP_USER` | SMTP username | `your-email@gmail.com` |
+| `email.password` | `N8N_SMTP_PASS` | SMTP password/app password | `your-gmail-app-password` |
+| `email.sender` | `N8N_SMTP_SENDER` | From email address | `your-email@gmail.com` |
 
 ## Scripts
 
@@ -148,9 +145,11 @@ make cleanup-backups      # Remove old backups (keep last 5)
 ├── Dockerfile              # n8n container configuration
 ├── fly.toml                # Fly.io deployment configuration  
 ├── docker-compose.yml      # Local development setup
-├── .env.example            # Environment variables template
+├── config.example.yaml     # Configuration template
+├── config.yaml             # Generated configuration (auto-created, .gitignore'd)
 ├── scripts/
-│   └── utils.sh           # Shared utilities for scripts
+│   ├── utils.sh           # Shared utilities for scripts
+│   └── generate-config.sh # Configuration generator
 ├── deploy.sh              # Deployment script
 ├── setup-local.sh         # Local development script
 ├── backup.sh              # Backup/restore script

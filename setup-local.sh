@@ -9,17 +9,16 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/scripts/utils.sh"
 
-# Load configuration from .env
-load_config_from_env
+# Load configuration from config.yaml
+load_config_from_yaml
 
-# Create .env file if it doesn't exist
-setup_env_file() {
-    if [[ ! -f .env ]]; then
-        print_status "Creating .env file from template..."
-        cp .env.example .env
-        print_warning "Please edit .env file and set your desired values before running the application"
+# Check if config.yaml exists
+check_config_file() {
+    if [[ ! -f config.yaml ]]; then
+        print_error "config.yaml not found. Please run 'make setup-local' first"
+        exit 1
     else
-        print_status ".env file already exists"
+        print_status "config.yaml found"
     fi
 }
 
@@ -86,7 +85,7 @@ main() {
             print_status "Setting up local n8n development environment..."
             check_local_deps
             check_docker_running
-            setup_env_file
+            check_config_file
             start_local
             ;;
         stop)

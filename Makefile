@@ -10,22 +10,20 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Environment:"
-	@echo "  Copy .env.example to .env and configure before first use"
+	@echo "  Run 'make setup' or 'make setup-local' to generate config.yaml"
 
 # Local Development
 setup: ## Setup production environment (core dependencies only)
 	@echo "Setting up production environment..."
 	@bash -c "source ./scripts/utils.sh && check_production_deps"
-	@cp -n .env.example .env || true
-	@echo "✓ Created .env file (edit with your values)"
-	@echo "✓ Next: Edit .env then run 'make deploy'"
+	@./scripts/generate-config.sh
+	@echo "✓ Next: make deploy"
 
 setup-local: ## Setup local development environment (includes docker-compose)
 	@echo "Setting up local development environment..."
 	@bash -c "source ./scripts/utils.sh && check_local_deps"
-	@cp -n .env.example .env || true
-	@echo "✓ Created .env file (edit with your values)"
-	@echo "✓ Next: Edit .env then run 'make dev'"
+	@./scripts/generate-config.sh
+	@echo "✓ Next: make dev"
 
 dev: ## Start local development environment
 	./setup-local.sh start
@@ -68,19 +66,19 @@ cleanup-backups: ## Remove old backups (keep last 5)
 
 # Production Management
 status: ## Check production application status
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly status -a $$APP_NAME
 
 ssh: ## SSH into production container
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly ssh console -a $$APP_NAME
 
 logs-prod: ## Show production logs
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly logs -a $$APP_NAME
 
 logs-prod-follow: ## Follow production logs in real-time
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly logs -a $$APP_NAME -f
 
 # Utility Commands
@@ -105,28 +103,26 @@ pull: ## Pull latest n8n image
 
 # Production Machine Control
 resume-prod: ## Resume production machine (start from stopped)
-	@if [ ! -f .env ]; then echo "❌ .env file not found"; exit 1; fi
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly machine start -a $$APP_NAME
 
 stop-prod: ## Stop production machine (saves compute costs)
-	@if [ ! -f .env ]; then echo "❌ .env file not found"; exit 1; fi
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly machine stop -a $$APP_NAME
 
 
 # Monitoring
 machine-list: ## List production machines
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly machine list -a $$APP_NAME
 
 # Security
 secrets-list: ## List production secrets
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly secrets list -a $$APP_NAME
 
 env-list: ## List production environment variables
-	@APP_NAME=$$(grep "^APP_NAME=" .env | cut -d= -f2) && \
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
 	fly config env -a $$APP_NAME
 
 # Quick Development Workflow
@@ -141,13 +137,6 @@ emergency-restore: ## Emergency restore (usage: make emergency-restore BACKUP=fi
 	@read -p "Are you sure? Type 'yes' to continue: " confirm && [ "$$confirm" = "yes" ]
 	@$(MAKE) restore BACKUP=$(BACKUP)
 
-# Maintenance
-update: ## Update to latest n8n version (manual Dockerfile edit required)
-	@echo "To update n8n:"
-	@echo "1. Edit Dockerfile to pin to specific version"
-	@echo "2. Run: make production-deploy"
-	@echo "3. Verify: make status"
-
 # Development Reset
 reset: clean setup ## Complete reset of local environment
 
@@ -159,11 +148,11 @@ config: ## Show current configuration
 	@docker-compose ps 2>/dev/null || echo "  No local containers running"
 	@echo ""
 	@echo "Production status:"
-	@APP_NAME=$$(grep "^APP_NAME=" .env 2>/dev/null | cut -d= -f2) && \
-	fly status -a $$APP_NAME 2>/dev/null || echo "  Not deployed or not authenticated"
+	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
+	fly status -a $$APP_NAME
 	@echo ""
-	@if [ -f .env ]; then \
-		echo "Environment file: ✓ .env exists"; \
+	@if [ -f config.yaml ]; then \
+		echo "Config file: ✓ config.yaml exists"; \
 	else \
-		echo "Environment file: ❌ .env missing (run 'make setup')"; \
+		echo "Config file: ❌ config.yaml missing (run 'make setup')"; \
 	fi
