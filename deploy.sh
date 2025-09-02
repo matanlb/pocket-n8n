@@ -119,7 +119,7 @@ deploy_app() {
 main() {
     print_status "Starting n8n deployment to Fly.io..."
     
-    check_fly_cli
+    check_production_deps
     check_fly_auth
     setup_app
     setup_volume

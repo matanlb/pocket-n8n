@@ -13,11 +13,19 @@ help: ## Show this help message
 	@echo "  Copy .env.example to .env and configure before first use"
 
 # Local Development
-setup: ## Setup local development environment
-	@echo "Setting up local development environment..."
+setup: ## Setup production environment (core dependencies only)
+	@echo "Setting up production environment..."
+	@bash -c "source ./scripts/utils.sh && check_production_deps"
 	@cp -n .env.example .env || true
 	@echo "✓ Created .env file (edit with your values)"
-	@echo "✓ Next: make dev"
+	@echo "✓ Next: Edit .env then run 'make deploy'"
+
+setup-local: ## Setup local development environment (includes docker-compose)
+	@echo "Setting up local development environment..."
+	@bash -c "source ./scripts/utils.sh && check_local_deps"
+	@cp -n .env.example .env || true
+	@echo "✓ Created .env file (edit with your values)"
+	@echo "✓ Next: Edit .env then run 'make dev'"
 
 dev: ## Start local development environment
 	./setup-local.sh start
@@ -77,11 +85,7 @@ logs-prod-follow: ## Follow production logs in real-time
 
 # Utility Commands
 check-deps: ## Check if required dependencies are installed
-	@echo "Checking dependencies..."
-	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker not found"; exit 1; }
-	@command -v docker-compose >/dev/null 2>&1 || { echo "❌ Docker Compose not found"; exit 1; }
-	@command -v fly >/dev/null 2>&1 || { echo "❌ Fly CLI not found"; exit 1; }
-	@echo "✓ All dependencies found"
+	@bash -c "source ./scripts/utils.sh && check_production_deps && echo '✓ All dependencies found'"
 
 auth: ## Authenticate with Fly.io
 	fly auth login

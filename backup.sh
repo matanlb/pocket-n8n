@@ -120,7 +120,7 @@ main() {
     
     case $command in
         backup)
-            check_fly_cli
+            check_production_deps
             check_fly_auth
             create_backup_dir
             backup_remote
@@ -131,7 +131,7 @@ main() {
                 show_usage
                 exit 1
             fi
-            check_fly_cli
+            check_production_deps
             check_fly_auth
             restore_remote "$backup_file"
             ;;
