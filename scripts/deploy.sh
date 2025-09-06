@@ -7,7 +7,8 @@ set -e
 
 # Source utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/scripts/utils.sh"
+CONFIG_FILE="$SCRIPT_DIR/../config.yaml"
+source "$SCRIPT_DIR/utils.sh"
 
 # Load configuration from config.yaml
 load_config_from_yaml
@@ -36,14 +37,14 @@ setup_volume() {
 update_secrets_if_needed() {
     print_status "Checking if secrets need updating..."
     
-    if [[ ! -f config.yaml ]]; then
+    if [[ ! -f "$CONFIG_FILE" ]]; then
         print_warning "No config.yaml file found - skipping secret check"
         return
     fi
     
     # Extract secret values from config.yaml
-    local encryption_key=$(yq eval '.n8n.encryption_key' config.yaml)
-    local smtp_pass=$(yq eval '.email.password // ""' config.yaml)
+    local encryption_key=$(yq eval '.n8n.encryption_key' "$CONFIG_FILE")
+    local smtp_pass=$(yq eval '.email.password // ""' "$CONFIG_FILE")
     
     # Calculate hash of current secret values
     local current_hash=$(echo "$encryption_key$smtp_pass" | sha256sum | cut -d' ' -f1)
@@ -75,23 +76,23 @@ deploy_app() {
     # Collect environment variables from config.yaml
     local env_args=""
     
-    if [[ -f config.yaml ]]; then
+    if [[ -f "$CONFIG_FILE" ]]; then
         print_status "Reading configuration from config.yaml..."
         
         # Required config values
-        local webhook_url=$(yq eval '.app.webhook_url' config.yaml)
-        local log_level=$(yq eval '.n8n.log_level' config.yaml)
-        local timezone=$(yq eval '.n8n.timezone' config.yaml)
+        local webhook_url=$(yq eval '.app.webhook_url' "$CONFIG_FILE")
+        local log_level=$(yq eval '.n8n.log_level' "$CONFIG_FILE")
+        local timezone=$(yq eval '.n8n.timezone' "$CONFIG_FILE")
         
         env_args="--env WEBHOOK_URL=$webhook_url --env N8N_LOG_LEVEL=$log_level --env GENERIC_TIMEZONE=$timezone"
         
         # Optional email config (only if email section exists)
-        if yq eval '.email' config.yaml > /dev/null 2>&1; then
-            local email_mode=$(yq eval '.email.mode' config.yaml)
-            local smtp_host=$(yq eval '.email.host' config.yaml)
-            local smtp_port=$(yq eval '.email.port' config.yaml)
-            local smtp_user=$(yq eval '.email.user' config.yaml)
-            local smtp_sender=$(yq eval '.email.sender' config.yaml)
+        if yq eval '.email' "$CONFIG_FILE" > /dev/null 2>&1; then
+            local email_mode=$(yq eval '.email.mode' "$CONFIG_FILE")
+            local smtp_host=$(yq eval '.email.host' "$CONFIG_FILE")
+            local smtp_port=$(yq eval '.email.port' "$CONFIG_FILE")
+            local smtp_user=$(yq eval '.email.user' "$CONFIG_FILE")
+            local smtp_sender=$(yq eval '.email.sender' "$CONFIG_FILE")
             
             env_args="$env_args --env N8N_EMAIL_MODE=$email_mode --env N8N_SMTP_HOST=$smtp_host --env N8N_SMTP_PORT=$smtp_port --env N8N_SMTP_USER=$smtp_user --env N8N_SMTP_SENDER=$smtp_sender"
         fi
