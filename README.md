@@ -1,28 +1,65 @@
-# n8n Self-Hosted Deployment on Fly.io
+# pocket-n8n
+Ready to go deploy setup for n8n, with a bill that can fit your pocket.
 
-A complete homelab-style setup for deploying n8n workflow automation platform on Fly.io with proper security, persistence, and backup capabilities.
+Easily deploy and maintain n8n workflow automation to Fly.io cloud or to your home-lab.
+
+## Table of Contents
+
+- [Capabilities](#capabilities)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Scripts](#scripts)
+- [Architecture](#architecture)
+- [Security Best Practices](#security-best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Support](#support)
+
+## Capabilities
+
+🚀 **Dual deployment options** - Choose between Fly.io cloud deployment or local Docker Compose setup
+
+💰 **Affordable cloud hosting** - Fly.io deployment runs for just over $6/month (1 CPU, 1GB RAM, 3GB storage)
+
+🏠 **Local deployment support** - Full Docker Compose setup for home-lab or self-hosted environments
+
+🔐 **Basic security** - HTTPS enforcement, n8n user management, and encrypted data storage
+
+💾 **Backup and restore** - Create backups from both cloud and local deployments with simple commands
+
+⚙️ **Simple configuration** - Auto-generated secure configs with encryption keys and webhook URLs
+
+🛠️ **Operational commands** - Makefile with organized commands for deployment, backup, and maintenance tasks
+
+📧 **Email integration** - Optionally configure n8n SMTP for workflow notifications and user invitations
 
 ## Prerequisites
 
+### For Deployment to Fly.io
 - [Fly.io CLI](https://fly.io/docs/getting-started/installing-flyctl/) installed and configured
-- [Docker](https://docs.docker.com/get-docker/) installed (for local development)
+- [yq](https://github.com/mikefarah/yq#install) installed
+
+### For Local Deployment
+- [Docker](https://docs.docker.com/get-docker/) installed (for local deployment)
 - [Docker Compose](https://docs.docker.com/compose/install/) installed
+- [yq](https://github.com/mikefarah/yq#install) 
 
 ## Quick Start
 
-### 1. Setup Configuration
+### Setup Configuration
 
 ```bash
-# For production deployment
+# For cloud deployment
 make setup
 
-# For local development
+# For local deployment
 make setup-local
 ```
 
-This automatically generates `config.yaml` (which is .gitignore'd) with secure defaults.
+Both automatically generates `config.yaml` (which is .gitignore'd) with secure defaults.
+The only difference between the two is the prerequisites installation checked.
 
-**Required (auto-generated):**
+**Required for cloud deployment (auto-generated):**
 - Encryption key for n8n data security
 - Username-prefixed webhook URL for global uniqueness
 
@@ -30,26 +67,26 @@ This automatically generates `config.yaml` (which is .gitignore'd) with secure d
 - Email/SMTP settings for full n8n functionality (Send Email nodes, user invitations, password resets)
 - Timezone configuration to control timing of scheduled workflows
 
-### 2. Local Development
-
-```bash
-# Start local development environment
-make dev
-
-# Access n8n at http://localhost:5678
-```
-
-### 3. Deploy to Fly.io
+### Deploy to Fly.io
 
 ```bash
 # Login to Fly.io
 fly auth login
 
-# Deploy to production
+# Deploy to cloud
 make deploy
 ```
 
-Your n8n instance will be available at: https://username-pocket-n8n.fly.dev
+Your n8n instance will be available at: https://<username>-pocket-n8n.fly.dev
+
+### Local Deployment
+
+```bash
+# Start local deployment environment
+make dev
+
+# Access n8n at http://localhost:5678
+```
 
 ## Configuration
 
@@ -66,10 +103,12 @@ Configuration is managed through `config.yaml`, which is auto-generated with sec
 | `n8n.log_level` | `N8N_LOG_LEVEL` | Logging level | `info` |
 | `n8n.timezone` | `GENERIC_TIMEZONE` | Timezone | `UTC` |
 
-**Choosing a Region:** Edit `app.region` in `config.yaml`. See [Fly.io Regions](https://fly.io/docs/reference/regions/) for all available options:
+**Choosing a Region:** Edit `app.region` in `config.yaml`. For example:
 - `fra` - Frankfurt, Germany
 - `iad` - Ashburn, USA (East Coast)
 - `nrt` - Tokyo, Japan
+ 
+ See [Fly.io Regions](https://fly.io/docs/reference/regions/) for all available options.
 
 ### Email Configuration (Optional but Recommended)
 
@@ -90,10 +129,10 @@ Configuration is managed through `config.yaml`, which is auto-generated with sec
 
 ## Scripts
 
-### Local Development
+### Local Deployment
 
 ```bash
-make dev                  # Start local environment
+make start                # Start local environment
 make stop                 # Stop local environment  
 make logs                 # View logs
 make clean                # Remove all containers and volumes
@@ -144,15 +183,15 @@ make cleanup-backups      # Remove old backups (keep last 5)
 .
 ├── Dockerfile              # n8n container configuration
 ├── fly.toml                # Fly.io deployment configuration  
-├── docker-compose.yml      # Local development setup
+├── docker-compose.yml      # Local deployment setup
 ├── config.example.yaml     # Configuration template
 ├── config.yaml             # Generated configuration (auto-created, .gitignore'd)
 ├── scripts/
 │   ├── utils.sh           # Shared utilities for scripts
-│   └── generate-config.sh # Configuration generator
-├── deploy.sh              # Deployment script
-├── setup-local.sh         # Local development script
-├── backup.sh              # Backup/restore script
+│   ├── generate-config.sh # Configuration generator
+│   ├── deploy.sh          # Deployment script
+│   ├── setup-local.sh     # Local deployment script
+│   └── backup.sh          # Backup/restore script
 └── backups/               # Backup files directory
 ```
 
@@ -163,7 +202,7 @@ make cleanup-backups      # Remove old backups (keep last 5)
 3. **HTTPS Only**: All traffic is forced to HTTPS in production
 4. **Non-root User**: Container runs as existing `node` user for security
 5. **Secret Management**: Sensitive data stored as Fly.io secrets with intelligent change detection
-6. **Configurable Deployment**: App name and region configurable via .env file
+6. **Configurable Deployment**: App name and region configurable via config.yaml file
 
 ## Troubleshooting
 
@@ -181,7 +220,7 @@ make logs-prod
 make machine-list
 ```
 
-**Local development issues:**
+**Local deployment issues:**
 ```bash
 # Check container status
 docker-compose ps

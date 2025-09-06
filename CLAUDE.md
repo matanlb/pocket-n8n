@@ -27,13 +27,13 @@ This guide provides comprehensive information for future maintenance and develop
 fly ssh console -a $(yq eval '.app.name' config.yaml) -C "n8n --version"
 
 # 2. Create backup before update
-./backup.sh backup
+./scripts/backup.sh backup
 
 # 3. Update Dockerfile base image
 # Edit Dockerfile: FROM n8nio/n8n:latest -> FROM n8nio/n8n:X.Y.Z
 
 # 4. Deploy update
-./deploy.sh
+./scripts/deploy.sh
 
 # 5. Verify update
 fly ssh console -a $(yq eval '.app.name' config.yaml) -C "n8n --version"
@@ -77,7 +77,7 @@ The backup includes:
 ### Disaster Recovery
 ```bash
 # 1. Restore from backup
-./backup.sh restore backups/n8n_backup_YYYYMMDD_HHMMSS.tar.gz
+./scripts/backup.sh restore backups/n8n_backup_YYYYMMDD_HHMMSS.tar.gz
 
 # 2. Verify data integrity
 fly ssh console -a $(yq eval '.app.name' config.yaml) -C "ls -la /home/node/.n8n/"
@@ -254,16 +254,17 @@ fly ssh console -a $(yq eval '.app.name' config.yaml) -C "df -h"
 
 ## Development Workflow
 
-### Local Development Setup
+### Local Deployment Setup
 ```bash
-# Start local environment
-./setup-local.sh start
+# Setup and start local environment
+make setup-local
+make dev
 
 # Make changes to configuration
 # Test locally
 
-# Deploy to production
-./deploy.sh
+# Deploy to cloud
+make deploy
 ```
 
 ### Configuration Changes
@@ -274,13 +275,19 @@ fly ssh console -a $(yq eval '.app.name' config.yaml) -C "df -h"
 
 ### Adding New Features
 1. Research n8n configuration options
-2. Test in local environment
-3. Update documentation
-4. Deploy with monitoring
+2. Test in local deployment with `make start`
+3. Update config.yaml if needed
+4. Update documentation
+5. Create backup with `make backup`
+6. Deploy with `make deploy` and monitor
 
 ## Useful Commands Reference
 
 ```bash
+# Setup and Configuration
+make setup                               # Setup production environment
+make setup-local                         # Setup local deployment
+
 # Deployment
 make deploy                              # Full deployment via Makefile
 ./deploy.sh                              # Direct script execution
@@ -295,10 +302,10 @@ make backup                             # Create backup
 make list-backups                       # List backups  
 make cleanup-backups                    # Clean old backups
 
-# Local Development
-make dev                                # Start local environment
+# Local Deployment
+make start                              # Start local deployment
 make logs                               # View local logs
-make clean                              # Reset local env
+make clean                              # Reset local deployment
 ```
 
 ## Future Enhancements
@@ -308,6 +315,7 @@ make clean                              # Reset local env
 2. **PostgreSQL migration**: External database for scaling beyond single instance
 3. **CI/CD pipeline**: Automate deployments with GitHub Actions
 4. **Automatic backups**: Schedule daily/weekly backups via cron
+5. **Secret restart reliability**: Monitor Fly.io secret restart flakiness
 
 ### Cost Optimization
 - Monitor usage patterns

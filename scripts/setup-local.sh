@@ -1,20 +1,21 @@
 #!/bin/bash
 
-# Local n8n Development Setup Script
-# This script sets up the local development environment for n8n
+# Local n8n Deployment Setup Script
+# This script sets up the local deployment environment for n8n
 
 set -e
 
 # Source utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/scripts/utils.sh"
+CONFIG_FILE="$SCRIPT_DIR/../config.yaml"
+source "$SCRIPT_DIR/utils.sh"
 
 # Load configuration from config.yaml
 load_config_from_yaml
 
 # Check if config.yaml exists
 check_config_file() {
-    if [[ ! -f config.yaml ]]; then
+    if [[ ! -f "$CONFIG_FILE" ]]; then
         print_error "config.yaml not found. Please run 'make setup-local' first"
         exit 1
     else
@@ -22,12 +23,12 @@ check_config_file() {
     fi
 }
 
-# Build and start the local development environment
+# Build and start the local deployment environment
 start_local() {
     print_status "Building Docker image..."
     docker-compose build
     
-    print_status "Starting n8n in development mode..."
+    print_status "Starting n8n in local mode..."
     docker-compose up -d
     
     # Wait for n8n to be ready
@@ -69,8 +70,8 @@ show_usage() {
     echo "Usage: $0 [COMMAND]"
     echo ""
     echo "Commands:"
-    echo "  start     Start the local development environment (default)"
-    echo "  stop      Stop the local development environment"
+    echo "  start     Start the local deployment environment (default)"
+    echo "  stop      Stop the local deployment environment"
     echo "  logs      Show n8n logs"
     echo "  cleanup   Stop and clean up all containers and volumes"
     echo "  help      Show this help message"
@@ -82,7 +83,7 @@ main() {
     
     case $command in
         start)
-            print_status "Setting up local n8n development environment..."
+            print_status "Setting up local n8n deployment environment..."
             check_local_deps
             check_docker_running
             check_config_file
