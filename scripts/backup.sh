@@ -129,19 +129,32 @@ restore_local() {
     local container_name=$(docker-compose ps -q n8n)
     docker cp "$backup_file" "$container_name:/tmp/restore_${TIMESTAMP}.tar.gz"
     
-    # Stop n8n process, restore data, restart
-    print_status "Stopping n8n, restoring data, and restarting..."
-    docker-compose exec -T n8n sh -c "
-        pkill -f n8n || true && 
-        cd /home/node/.n8n && 
-        rm -rf ./* && 
-        tar -xzf /tmp/restore_${TIMESTAMP}.tar.gz && 
-        rm -f /tmp/restore_${TIMESTAMP}.tar.gz && 
-        nohup n8n > /dev/null 2>&1 &
-    "
+    # Restore data using separate commands to avoid hanging
+    print_status "Stopping n8n process..."
+    docker-compose exec -T n8n pkill -f n8n || true
+    sleep 2
     
-    print_status "Local restore completed successfully"
-    print_status "Your n8n instance should be available at: http://localhost:5678"
+    print_status "Clearing existing data..."
+    docker-compose exec -T n8n sh -c "cd /home/node/.n8n && rm -rf ./* ./.[^.]* 2>/dev/null || true"
+    
+    print_status "Restoring data from backup..."
+    docker-compose exec -T n8n sh -c "cd /home/node/.n8n && tar -xzf /tmp/restore_${TIMESTAMP}.tar.gz"
+    
+    print_status "Cleaning up temporary files..."
+    docker-compose exec -T n8n sh -c "rm -f /tmp/restore_${TIMESTAMP}.tar.gz" || true
+    
+    print_status "Restarting n8n container to pick up restored data..."
+    docker-compose restart n8n
+    
+    # Wait a moment for startup and verify
+    sleep 3
+    if docker-compose ps | grep -q "n8n.*Up"; then
+        print_status "Local restore completed successfully"
+        print_status "Your n8n instance should be available at: http://localhost:5678"
+    else
+        print_error "Container failed to start after restore. Check logs with 'make logs-local'"
+        exit 1
+    fi
 }
 
 # List available backups
