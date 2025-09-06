@@ -83,7 +83,7 @@ Your n8n instance will be available at: https://<username>-pocket-n8n.fly.dev
 
 ```bash
 # Start local deployment environment
-make dev
+make start
 
 # Access n8n at http://localhost:5678
 ```
@@ -98,12 +98,13 @@ Configuration is managed through `config.yaml`, which is auto-generated with sec
 |------------|----------------|-------------|---------|
 | `app.name` | - | Fly.io app name | `pocket-n8n` |
 | `app.webhook_url` | `WEBHOOK_URL` | Base URL for webhooks | `https://username-pocket-n8n.fly.dev` |
-| `app.region` | - | Deployment region | `fra` (Frankfurt) |
+| `app.region` | - | Fly.io deployment region | `fra` (Frankfurt) |
 | `n8n.encryption_key` | `N8N_ENCRYPTION_KEY` | Data encryption key | Auto-generated |
 | `n8n.log_level` | `N8N_LOG_LEVEL` | Logging level | `info` |
 | `n8n.timezone` | `GENERIC_TIMEZONE` | Timezone | `UTC` |
 
-**Choosing a Region:** Edit `app.region` in `config.yaml`. For example:
+**Choosing a Region:**
+Edit `app.region` in `config.yaml`. For example:
 - `fra` - Frankfurt, Germany
 - `iad` - Ashburn, USA (East Coast)
 - `nrt` - Tokyo, Japan
@@ -128,27 +129,31 @@ Configuration is managed through `config.yaml`, which is auto-generated with sec
 | `email.sender` | `N8N_SMTP_SENDER` | From email address | `your-email@gmail.com` |
 
 ## Scripts
+Full list of command is available via `make help`
 
 ### Local Deployment
 
 ```bash
 make start                # Start local environment
 make stop                 # Stop local environment  
-make logs                 # View logs
+make logs-local           # View logs
 make clean                # Remove all containers and volumes
+make local-upgrade        # Full day-2 deploy sequence. Runs backup-local, pull, build stop & start
 ```
 
 ### Deployment
 
 ```bash
 make deploy               # Smart deployment with secret change detection
+make production-deploy   # Full day-2 deploy sequence. Runs backup-cloud, deploy & status check
 ```
 
-**Smart Deployment Strategy:**
+**Cloud Secret Deployment Strategy:**
 
-Our deployment script uses hash-based secret change detection to minimize machine restarts:
+Our deployment script uses hash-based value change detection to minimize machine restarts.
 
-**Why this matters:** Every `fly secrets set` command triggers a machine restart. Without optimization, changing multiple secrets would cause multiple restarts plus the deployment restart.
+**Why this matters:**
+Every `fly secrets set` command triggers a machine restart. Without optimization, changing multiple secrets would cause multiple restarts plus the deployment restart.
 
 **How we solve it:**
 1. **Hash comparison**: Calculate SHA256 hash of sensitive values (`N8N_ENCRYPTION_KEY` + `N8N_SMTP_PASS`)
@@ -164,17 +169,22 @@ Our deployment script uses hash-based secret change detection to minimize machin
 ### Backup & Restore
 
 ```bash
-make backup               # Create backup (zero downtime)
+make backup-cloud         # Create backup of n8n data from fly.io machine (zero downtime)
+make local-backup         # Create backup of n8n data from running container (zero downtime)
 make list-backups         # List available backups
-make cleanup-backups      # Remove old backups (keep last 5)
+make cleanup-backups      # Remove old backups (keep last 5 of either type, local & clouad)
 ```
 
 ## Architecture
 
-- **Database**: SQLite (persisted in Fly.io volume)
-- **Storage**: 3GB persistent volume mounted at `/home/node/.n8n`
-- **Resources**: 1 CPU, 1GB RAM (configurable in `fly.toml`)
-- **Region**: Configurable via `FLY_REGION` (defaults to Frankfurt)
+- **Database**: SQLite
+  - Cloud - persisted in Fly.io volume
+  - Local - persisted in docker managed volume
+- **Storage**: persistent volume mounted at `/home/node/.n8n` (Cloud limit - 3GB)
+- **Resources**:
+  - Cloud - 1 CPU, 1GB RAM (configurable in `fly.toml`)
+  - Local - None (configurable in `docker-compose.yaml`)
+- **Region**: Cloud Only, configurable via `FLY_REGION` (defaults to Frankfurt)
 - **Security**: n8n user management, HTTPS enforced, non-root container user
 
 ## File Structure
@@ -197,45 +207,53 @@ make cleanup-backups      # Remove old backups (keep last 5)
 
 ## Security Best Practices
 
-1. **Strong n8n Passwords**: Use strong passwords for your n8n user accounts
-2. **Encryption Key**: Generate a secure encryption key with `openssl rand -base64 32`
-3. **HTTPS Only**: All traffic is forced to HTTPS in production
-4. **Non-root User**: Container runs as existing `node` user for security
-5. **Secret Management**: Sensitive data stored as Fly.io secrets with intelligent change detection
-6. **Configurable Deployment**: App name and region configurable via config.yaml file
+1. **Encryption Key**: Auto generated a secure encryption key with `openssl rand -base64 32`
+2. **HTTPS Only**: All traffic is forced to HTTPS in production
+3. **Non-root User**: Container runs as existing `node` user for security
+4. **Secret Management**: Sensitive data stored as Fly.io secrets with intelligent change detection
+5. **Configurable Deployment**: App name and region configurable via config.yaml file
 
 ## Troubleshooting
 
 ### Common Issues
 
-**n8n not responding after deployment:**
+**Cloud deployment not responding:**
 ```bash
 # Check application status
 make status
 
 # View logs
-make logs-prod
+make logs-cloud
 
 # Check machine status
 make machine-list
 ```
 
-**Local deployment issues:**
+**Local deployment not responding:**
 ```bash
 # Check container status
-docker-compose ps
+make config
 
 # View logs
-docker-compose logs n8n
+make logs-local
 
 # Restart services
-docker-compose restart
+make restart
 ```
 
-**Backup/restore failures:**
-- Ensure you're authenticated with Fly.io: `fly auth whoami`
-- Check if the app is running: `make status`
-- Verify backup file exists and is not corrupted
+**Restore failures:**
+
+*Cloud restore issues:*
+- Ensure you're authenticated with Fly.io: `make whoami`
+- Check if the cloud deployment is running: `make status`
+- Verify backup file exists: `make list-backups`
+- Ensure you're using a cloud backup file (`n8n_cloud_backup_*.tar.gz`)
+
+*Local restore issues:*
+- Check if local deployment is running: `make config`
+- Verify Docker is running and accessible
+- Verify backup file exists: `make list-backups`  
+- Ensure you're using correct backup file (`n8n_local_backup_*.tar.gz` for local, `n8n_cloud_backup_*.tar.gz` for cloud)
 
 ### Performance Tuning
 
@@ -252,6 +270,7 @@ docker-compose restart
 
 - [n8n Documentation](https://docs.n8n.io/)
 - [Fly.io Documentation](https://fly.io/docs/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [Project Issues](https://github.com/yourusername/n8n-fly-deployment/issues)
 
 ## License

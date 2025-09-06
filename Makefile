@@ -1,7 +1,7 @@
 # n8n Dual Deployment Makefile
 # Provides convenient shortcuts for both local and cloud deployments
 
-.PHONY: help setup setup-local start stop logs restart clean shell build pull backup-local restore-local local-upgrade reset deploy backup-cloud restore-cloud status ssh logs-cloud logs-cloud-follow resume suspend machine-list secrets-list env-list auth whoami production-deploy list-backups cleanup-backups check-deps config
+.PHONY: help setup setup-local start stop logs-local restart clean shell build pull backup-local restore-local local-upgrade reset deploy backup-cloud restore-cloud status ssh logs-cloud logs-cloud-follow resume suspend machine-list secrets-list env-list auth whoami production-deploy list-backups cleanup-backups check-deps config
 
 # Default target
 help: ## Show this help message
@@ -46,7 +46,7 @@ start: ## Local - Launch local deployment environment
 stop: ## Local - Stop local deployment environment  
 	./scripts/setup-local.sh stop
 
-logs: ## Local - Show local deployment logs
+logs-local: ## Local - Show local deployment logs
 	./scripts/setup-local.sh logs
 
 restart: stop start ## Local - Restart local deployment environment
@@ -111,7 +111,7 @@ ssh: ## Cloud - SSH into cloud deployment container
 
 logs-cloud: ## Cloud - Show cloud deployment logs
 	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \
-	fly logs -a $$APP_NAME
+	fly logs -n -a $$APP_NAME
 
 logs-cloud-follow: ## Cloud - Follow cloud deployment logs in real-time
 	@APP_NAME=$$(yq eval '.app.name' config.yaml) && \

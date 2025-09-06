@@ -2,16 +2,16 @@
 
 # Shared utilities for n8n deployment scripts
 
-# Configuration (will be overridden from .env if available)
+# Configuration (will be loaded from config.yaml)
 APP_NAME="pocket-n8n"
 VOLUME_NAME="n8n_data"
 REGION="fra"
 
 # Load configuration from config.yaml
 load_config_from_yaml() {
-    if [[ -f config.yaml ]]; then
-        APP_NAME=$(yq eval '.app.name' config.yaml)
-        REGION=$(yq eval '.app.region' config.yaml)
+    if [[ -f "$CONFIG_FILE" ]]; then
+        APP_NAME=$(yq eval '.app.name' "$CONFIG_FILE")
+        REGION=$(yq eval '.app.region' "$CONFIG_FILE")
     fi
 }
 
@@ -34,7 +34,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check production dependencies (fly, yq, docker)
+# Check cloud deployment dependencies (fly, yq)
 check_production_deps() {
     local missing=()
     
@@ -46,10 +46,6 @@ check_production_deps() {
         missing+=("yq")
     fi
     
-    if ! command -v docker &> /dev/null; then
-        missing+=("docker")
-    fi
-    
     if [[ ${#missing[@]} -gt 0 ]]; then
         print_error "Missing dependencies: ${missing[*]}"
         echo ""
@@ -58,7 +54,6 @@ check_production_deps() {
             case $tool in
                 fly) echo "  • Fly.io CLI: https://fly.io/docs/getting-started/installing-flyctl/" ;;
                 yq) echo "  • yq: https://github.com/mikefarah/yq#install" ;;
-                docker) echo "  • Docker: https://docs.docker.com/get-docker/" ;;
             esac
         done
         echo ""
@@ -66,7 +61,7 @@ check_production_deps() {
     fi
 }
 
-# Check local development dependencies (yq, docker, docker-compose)
+# Check local deployment dependencies (yq, docker, docker-compose)
 check_local_deps() {
     local missing=()
     

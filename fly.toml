@@ -1,5 +1,5 @@
 # Fly.io configuration for n8n deployment
-# NOTE: app name and primary_region are overridden by deploy.sh from .env values
+# NOTE: app name and primary_region are overridden by deploy.sh from config.yaml values
 app = "pocket-n8n"
 primary_region = "fra"
 
