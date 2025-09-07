@@ -1,8 +1,16 @@
+<img width="128" height="128" alt="Image" align="right" src="https://github.com/user-attachments/assets/4eccd675-7c92-429a-8cc5-48b3ab09e082" />
+
+
+‎ 
+
+
+‎ 
+
 # pocket-n8n
 Ready to go deploy setup for n8n, with a bill that can fit your pocket.
 
 Easily deploy and maintain n8n workflow automation to Fly.io cloud or to your home-lab.
-
+‎
 ## Table of Contents
 
 - [Capabilities](#capabilities)
